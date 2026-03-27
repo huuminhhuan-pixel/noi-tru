@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
-// Nếu chạy trên StackBlitz, bạn cần điền thông tin Firebase của bạn vào đây
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
 const firebaseConfig = rawConfig ? JSON.parse(rawConfig) : {
   apiKey: "YOUR_FIREBASE_API_KEY",
@@ -81,20 +80,17 @@ const generateBalancedStudyPlan = () => {
   const generatedEvents = [];
 
   const startDate = new Date(); 
-  // Chừa lại 1 tháng (Tháng 8/2026) để ôn tập toàn diện, không học bài mới
   const endLearningDate = new Date('2026-08-01');
   
   if (startDate >= endLearningDate) {
-    endLearningDate.setDate(EXAM_DATE.getDate() - 15); // Fallback nếu sát ngày quá
+    endLearningDate.setDate(EXAM_DATE.getDate() - 15);
   }
 
-  // Tính tổng số ngày có thể dùng để học bài mới
   const totalDaysAvailable = Math.max(1, Math.floor((endLearningDate - startDate) / (1000 * 60 * 60 * 24)));
-  const totalLessons = LESSONS_PER_SUBJECT * SUBJECTS.length; // 80 bài
+  const totalLessons = LESSONS_PER_SUBJECT * SUBJECTS.length;
 
   let lessonCounter = 0;
 
-  // Dàn đều 80 bài học từ hôm nay đến 1/8/2026
   for (let lesson = 1; lesson <= LESSONS_PER_SUBJECT; lesson++) {
     for (const subject of SUBJECTS) {
       const itemId = `med_${subject.name}_${lesson}`;
@@ -107,7 +103,6 @@ const generateBalancedStudyPlan = () => {
         createdAt: getTodayString(),
       });
 
-      // Ngày học bài mới được tính toán cân bằng
       const daysOffset = Math.floor((lessonCounter / totalLessons) * totalDaysAvailable);
       const learnDate = new Date(startDate);
       learnDate.setDate(startDate.getDate() + daysOffset);
@@ -122,7 +117,6 @@ const generateBalancedStudyPlan = () => {
         type: 'learn',
       });
 
-      // Lên lịch ôn tập dựa trên ngày học bài mới
       INTERVALS.forEach((interval, idx) => {
         const revDate = new Date(learnDate);
         revDate.setDate(revDate.getDate() + interval);
@@ -149,35 +143,29 @@ const generateBalancedStudyPlan = () => {
 
 
 export default function App() {
-  // --- STATE ỨNG DỤNG ---
   const [activeTab, setActiveTab] = useState('calendar');
   const [studyItems, setStudyItems] = useState([]);
   const [events, setEvents] = useState([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Lịch & Bộ lọc
   const [currentDate, setCurrentDate] = useState(new Date());
   const [upcomingFilter, setUpcomingFilter] = useState('today');
 
-  // Form State
   const [newItemTitle, setNewItemTitle] = useState('');
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [subjectNewItemTitle, setSubjectNewItemTitle] = useState('');
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingItemTitle, setEditingItemTitle] = useState('');
 
-  // AI State
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiCurrentTask, setAiCurrentTask] = useState(null);
   const [aiContent, setAiContent] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Tài khoản & Xác thực
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // --- HỆ THỐNG AUTHENTICATION ---
   useEffect(() => {
     if (!isFirebaseConfigured) {
       setAuthLoading(false);
@@ -203,11 +191,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- HỆ THỐNG LƯU TRỮ ĐÁM MÂY (FIRESTORE) ---
   useEffect(() => {
     if (!user || !db) return;
 
-    // Lấy toàn bộ dữ liệu người dùng tại 1 Document duy nhất để tối ưu tốc độ
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'studyData', 'main');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -216,7 +202,6 @@ export default function App() {
         setEvents(data.events || []);
         setIsDataLoaded(true);
       } else {
-        // Nếu là lần đầu tiên đăng nhập -> Tạo kế hoạch học tập!
         const { items, events } = generateBalancedStudyPlan();
         setDoc(docRef, { items, events }).catch(e => console.error("Lỗi tạo plan:", e));
       }
@@ -228,13 +213,10 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- HÀM CẬP NHẬT DỮ LIỆU ĐỒNG BỘ ---
   const updateCloudData = async (newItems, newEvents) => {
-    // Cập nhật giao diện mượt mà trước (Optimistic UI)
     setStudyItems(newItems);
     setEvents(newEvents);
     
-    // Đồng bộ lên Cloud
     if (user && db) {
       try {
         const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'studyData', 'main');
@@ -246,8 +228,6 @@ export default function App() {
     }
   };
 
-
-  // --- CÁC HÀM XỬ LÝ LỘ TRÌNH THÊM MỚI TỰ DO ---
   const handleAddStudyItem = (e) => {
     e.preventDefault();
     if (!newItemTitle.trim()) return;
@@ -308,7 +288,6 @@ export default function App() {
         ? { ...it, attachments: [...(it.attachments || []), { name: file.name, url: URL.createObjectURL(file) }] }
         : it
     );
-    // Lưu ý: createObjectURL chỉ lưu file trên máy nội bộ hiện tại, không lưu vật lý lên Cloud được.
     updateCloudData(newItems, events); 
   };
 
@@ -359,8 +338,6 @@ export default function App() {
     }
   };
 
-
-  // --- TÍNH NĂNG AI (GEMINI) ---
   const handleAskGemini = async (eventTask) => {
     setAiCurrentTask(eventTask);
     setAiModalOpen(true);
@@ -382,7 +359,7 @@ export default function App() {
     };
 
     try {
-      const apiKey = ''; // Môi trường Canvas sẽ tự điền, trên StackBlitz cần điền key Gemini của bạn.
+      const apiKey = '';
       const data = await fetchWithBackoff(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -409,20 +386,18 @@ export default function App() {
     return subj ? subj.color.replace('text-', 'bg-').replace('500', '100') : 'bg-gray-100';
   };
 
-  // --- MÀN HÌNH CHƯA CẤU HÌNH (Dành cho người copy qua StackBlitz) ---
   if (!isFirebaseConfigured) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-center">
         <AlertCircle className="w-16 h-16 text-amber-500 mb-4" />
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Chưa cấu hình Cơ Sở Dữ Liệu</h1>
         <p className="text-gray-600 max-w-md mb-6">
-          Hệ thống lưu trữ đám mây chưa được thiết lập. Để ứng dụng hoạt động trên máy chủ riêng của bạn, vui lòng mở mã nguồn, tìm dòng `const firebaseConfig = ...` và nhập các khóa cấu hình Firebase của bạn vào.
+          Hệ thống lưu trữ đám mây chưa được thiết lập. Vui lòng nhập các khóa cấu hình Firebase của bạn vào.
         </p>
       </div>
     );
   }
 
-  // --- MÀN HÌNH ĐĂNG NHẬP (Bắt buộc để lưu trữ) ---
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center">
@@ -435,7 +410,6 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
         <div className="absolute top-[20%] right-[-10%] w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
 
@@ -475,16 +449,10 @@ export default function App() {
             </button>
           </div>
         </div>
-        <div className="mt-8 text-center text-xs font-medium text-gray-400">
-          Thuật toán Spaced Repetition tối ưu cho kỳ thi 01/09/2026
-        </div>
       </div>
     );
   }
 
-  // --- CÁC THÀNH PHẦN GIAO DIỆN CON CHÍNH ---
-
-  // 1. Giao diện "Hôm nay" & "Sắp tới"
   const renderToday = () => {
     const todayStr = formatDateObj(new Date());
     let endDate = new Date();
@@ -602,7 +570,6 @@ export default function App() {
     );
   };
 
-  // 2. Giao diện "Lịch"
   const renderCalendar = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -669,7 +636,6 @@ export default function App() {
     );
   };
 
-  // 3. Giao diện "Quản lý mục học"
   const renderStudyItems = () => {
     if (selectedSubject) {
       const subject = SUBJECTS.find((s) => s.name === selectedSubject);
@@ -775,8 +741,6 @@ export default function App() {
     );
   };
 
-
-  // --- RENDER BỘ KHUNG CHÍNH (LAYOUT) ---
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-gray-900 pb-20 md:pb-0">
       {errorMessage && (
@@ -788,7 +752,6 @@ export default function App() {
       )}
 
       <div className="max-w-6xl mx-auto md:flex min-h-screen">
-        {/* Sidebar */}
         <aside className="md:w-72 bg-white border-r border-gray-200 md:min-h-screen p-6 hidden md:flex flex-col">
           <div className="flex items-center gap-3 mb-10 text-indigo-700">
             <div className="bg-indigo-100 p-2 rounded-xl"><Stethoscope className="w-7 h-7" /></div>
@@ -821,7 +784,6 @@ export default function App() {
           </div>
         </aside>
 
-        {/* Header Mobile */}
         <header className="md:hidden bg-white px-6 py-4 flex items-center justify-between border-b border-gray-200 sticky top-0 z-10">
           <div className="flex items-center gap-2 text-indigo-700">
             <Stethoscope className="w-6 h-6" />
@@ -832,7 +794,6 @@ export default function App() {
           </button>
         </header>
 
-        {/* Main Content */}
         <main className="flex-1 p-4 md:p-10 max-h-screen overflow-y-auto">
           <div className="max-w-4xl mx-auto">
             {!isDataLoaded ? (
@@ -850,14 +811,12 @@ export default function App() {
           </div>
         </main>
 
-        {/* Bottom Nav Mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 z-10 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <button onClick={() => setActiveTab('calendar')} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'calendar' ? 'text-indigo-600' : 'text-gray-400'}`}><Calendar className="w-6 h-6" /><span className="text-[10px] font-bold">Lịch</span></button>
           <button onClick={() => setActiveTab('today')} className={`flex flex-col items-center gap-1 p-2 relative ${activeTab === 'today' ? 'text-indigo-600' : 'text-gray-400'}`}><CheckCircle2 className="w-6 h-6" /><span className="text-[10px] font-bold">Hôm nay</span>{events.filter((ev) => ev.date === formatDateObj(new Date()) && !ev.completed).length > 0 && <span className="absolute top-1 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>}</button>
           <button onClick={() => setActiveTab('study')} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'study' ? 'text-indigo-600' : 'text-gray-400'}`}><LayoutList className="w-6 h-6" /><span className="text-[10px] font-bold">Tổng quan</span></button>
         </nav>
 
-        {/* --- MODAL TRỢ GIẢNG AI --- */}
         {aiModalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
