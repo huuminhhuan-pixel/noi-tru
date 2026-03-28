@@ -27,12 +27,12 @@ import {
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
 const firebaseConfig = rawConfig ? JSON.parse(rawConfig) : {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDmyno516slYBrEGombfm3Uf1xURP6MgFY",
+  authDomain: "minh-5e426.firebaseapp.com",
+  projectId: "minh-5e426",
+  storageBucket: "minh-5e426.firebasestorage.app",
+  messagingSenderId: "1099236716330",
+  appId: "1:1099236716330:web:310556379821475993b853",
 };
 
 let app, auth, db;
