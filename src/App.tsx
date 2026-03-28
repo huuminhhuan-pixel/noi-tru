@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
+// RẤT QUAN TRỌNG: Hãy thay thế các dòng dưới đây bằng mã thật từ Firebase Console của bạn
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
 const firebaseConfig = rawConfig ? JSON.parse(rawConfig) : {
   apiKey: "AIzaSyDmyno516slYBrEGombfm3Uf1xURP6MgFY",
@@ -33,6 +34,7 @@ const firebaseConfig = rawConfig ? JSON.parse(rawConfig) : {
   storageBucket: "minh-5e426.firebasestorage.app",
   messagingSenderId: "1099236716330",
   appId: "1:1099236716330:web:310556379821475993b853",
+  measurementId: "G-21C38Y6V7R",
 };
 
 let app, auth, db;
@@ -64,7 +66,7 @@ const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
 
-// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Dàn đều đến T8/2026) ---
+// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Bản Nâng Cấp - Tháng 8 Tổng Ôn 5 bài/ngày) ---
 const EXAM_DATE = new Date('2026-09-01');
 const SUBJECTS = [
   { name: 'Hoá sinh', icon: Microscope, color: 'text-emerald-500' },
@@ -73,23 +75,24 @@ const SUBJECTS = [
   { name: 'Di truyền', icon: Dna, color: 'text-purple-500' },
 ];
 const LESSONS_PER_SUBJECT = 20;
-const INTERVALS = [1, 3, 7, 14, 30, 45, 60]; // Các mốc ôn tập Spaced Repetition
 
 const generateBalancedStudyPlan = () => {
   const generatedItems = [];
   const generatedEvents = [];
 
-  const startDate = new Date(); 
-  const endLearningDate = new Date('2026-08-01');
+  const startDate = new Date(); // Bắt đầu từ hôm nay
   
+  // Dàn đều việc học bài mới từ nay đến 05/08/2026
+  const endLearningDate = new Date('2026-08-05');
   if (startDate >= endLearningDate) {
     endLearningDate.setDate(EXAM_DATE.getDate() - 15);
   }
 
-  const totalDaysAvailable = Math.max(1, Math.floor((endLearningDate - startDate) / (1000 * 60 * 60 * 24)));
+  const totalDaysForNewLessons = Math.max(1, Math.floor((endLearningDate - startDate) / (1000 * 60 * 60 * 24)));
   const totalLessons = LESSONS_PER_SUBJECT * SUBJECTS.length;
 
   let lessonCounter = 0;
+  const allLessonsInfo = []; // Lưu danh sách toàn bộ 80 bài để trộn vào Tháng 8
 
   for (let lesson = 1; lesson <= LESSONS_PER_SUBJECT; lesson++) {
     for (const subject of SUBJECTS) {
@@ -103,7 +106,8 @@ const generateBalancedStudyPlan = () => {
         createdAt: getTodayString(),
       });
 
-      const daysOffset = Math.floor((lessonCounter / totalLessons) * totalDaysAvailable);
+      // 1. LỊCH HỌC MỚI (Dàn đều)
+      const daysOffset = Math.floor((lessonCounter / totalLessons) * totalDaysForNewLessons);
       const learnDate = new Date(startDate);
       learnDate.setDate(startDate.getDate() + daysOffset);
 
@@ -117,11 +121,16 @@ const generateBalancedStudyPlan = () => {
         type: 'learn',
       });
 
-      INTERVALS.forEach((interval, idx) => {
+      // 2. LỊCH ÔN TẬP CƠ BẢN (1, 3, 7, 14, 30, 50) - Chỉ xếp nếu trước ngày 1/8
+      const spacedIntervals = [1, 3, 7, 14, 30, 50];
+      const startSprintDate = new Date('2026-08-01'); // Bắt đầu Tổng ôn từ 1/8
+      
+      spacedIntervals.forEach((interval, idx) => {
         const revDate = new Date(learnDate);
         revDate.setDate(revDate.getDate() + interval);
 
-        if (revDate < EXAM_DATE) {
+        // Hủy mốc ôn tập cơ bản nếu nó rơi vào Tháng 8 (Nhường chỗ cho Tổng Ôn)
+        if (revDate < startSprintDate && revDate < EXAM_DATE) {
           generatedEvents.push({
             id: `ev_rev_${itemId}_${idx}`,
             date: formatDateObj(revDate),
@@ -134,7 +143,47 @@ const generateBalancedStudyPlan = () => {
         }
       });
 
+      // Đưa thông tin bài học vào kho lưu trữ để chuẩn bị cho Tháng 8
+      allLessonsInfo.push({ itemId, subject: subject.name, title });
       lessonCounter++;
+    }
+  }
+
+  // 3. THÁNG 8 TỔNG ÔN THÔNG MINH: 160 SUẤT (MỖI BÀI ĐÚNG 2 LẦN)
+  const sprintStartDate = new Date('2026-08-01');
+  const sprintEndDate = new Date('2026-08-31');
+  const sprintDaysCount = Math.round((sprintEndDate - sprintStartDate) / (1000 * 60 * 60 * 24)) + 1; // 31 ngày
+  const totalSprintSlots = 160; // 80 bài x 2 vòng
+
+  // KHÔNG TRỘN NGẪU NHIÊN: Sắp xếp có chủ đích dựa vào lịch sử học (Tháng 3 -> Tháng 7)
+  // allLessonsInfo vốn dĩ đã được sinh ra theo đúng thứ tự thời gian bạn học bài mới.
+  // Chúng ta nối 2 vòng allLessonsInfo lại với nhau.
+  // Vòng 1 (Nửa đầu T8): Cứu các bài cũ tháng 3 trước, các bài mới tháng 7 để sau.
+  // Vòng 2 (Nửa cuối T8): Lặp lại. Đảm bảo mọi bài đều cách nhau ~15.5 ngày!
+  let sprintPool = [...allLessonsInfo, ...allLessonsInfo];
+
+  // Rải đều 160 bài vào 31 ngày (Toán học: 26 ngày ôn 5 bài, 5 ngày ôn 6 bài)
+  let poolIndex = 0;
+  for (let i = 0; i < sprintDaysCount; i++) {
+    const currentDate = new Date(sprintStartDate);
+    currentDate.setDate(sprintStartDate.getDate() + i);
+    const dateStr = formatDateObj(currentDate);
+
+    // Công thức tính số bài ôn trong ngày i để đảm bảo tổng đúng 160 bài sau 31 ngày
+    const itemsToday = Math.floor((i + 1) * totalSprintSlots / sprintDaysCount) - Math.floor(i * totalSprintSlots / sprintDaysCount);
+
+    for (let j = 0; j < itemsToday; j++) {
+      const lesson = sprintPool[poolIndex];
+      generatedEvents.push({
+        id: `ev_rev_sprint_${lesson.itemId}_${i}_${j}`,
+        date: dateStr,
+        title: `🔥 TỔNG ÔN: ${lesson.subject} - ${lesson.title}`,
+        subject: lesson.subject,
+        studyItemId: lesson.itemId,
+        completed: false,
+        type: 'review',
+      });
+      poolIndex++;
     }
   }
 
@@ -359,7 +408,7 @@ export default function App() {
     };
 
     try {
-      const apiKey = '';
+      const apiKey = ''; // Gemini API Key
       const data = await fetchWithBackoff(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -667,30 +716,49 @@ export default function App() {
                 const progress = itemEvents.length > 0 ? Math.round((itemEvents.filter((ev) => ev.completed).length / itemEvents.length) * 100) : 0;
                 
                 return (
-                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-indigo-100 transition-colors">
-                    <div className="flex-1">
-                      {editingItemId === item.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-gray-400 w-6">#{idx + 1}</span>
-                          <input type="text" className="font-bold text-gray-800 text-lg border-b-2 border-indigo-500 focus:outline-none bg-transparent w-full max-w-[250px]" value={editingItemTitle} onChange={(e) => setEditingItemTitle(e.target.value)} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditItem(item.id); if (e.key === 'Escape') setEditingItemId(null); }} />
-                          <button onClick={() => handleSaveEditItem(item.id)} className="text-green-500 hover:bg-green-50 p-1 rounded transition-colors" title="Lưu"><CheckCircle2 className="w-5 h-5" /></button>
-                          <button onClick={() => setEditingItemId(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded transition-colors" title="Hủy"><X className="w-5 h-5" /></button>
+                  <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:border-indigo-100 transition-colors">
+                    <div className="flex sm:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        {editingItemId === item.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-400 w-6">#{idx + 1}</span>
+                            <input type="text" className="font-bold text-gray-800 text-lg border-b-2 border-indigo-500 focus:outline-none bg-transparent w-full max-w-[250px]" value={editingItemTitle} onChange={(e) => setEditingItemTitle(e.target.value)} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditItem(item.id); if (e.key === 'Escape') setEditingItemId(null); }} />
+                            <button onClick={() => handleSaveEditItem(item.id)} className="text-green-500 hover:bg-green-50 p-1 rounded transition-colors" title="Lưu"><CheckCircle2 className="w-5 h-5" /></button>
+                            <button onClick={() => setEditingItemId(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded transition-colors" title="Hủy"><X className="w-5 h-5" /></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group">
+                            <span className="text-xs font-bold text-gray-400 w-6">#{idx + 1}</span>
+                            <h4 className="font-bold text-gray-800 text-lg">{item.title}</h4>
+                            <button onClick={() => { setEditingItemId(item.id); setEditingItemTitle(item.title); }} className="p-1 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all md:opacity-0 md:group-hover:opacity-100"><Edit2 className="w-4 h-4" /></button>
+                          </div>
+                        )}
+                        <div className="mt-2 flex items-center gap-3 max-w-xs">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full ${subject.color.replace('text-', 'bg-')} transition-all`} style={{ width: `${progress}%` }} /></div>
+                          <span className="text-[10px] font-bold text-gray-400">{progress}%</span>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 group">
-                          <span className="text-xs font-bold text-gray-400 w-6">#{idx + 1}</span>
-                          <h4 className="font-bold text-gray-800 text-lg">{item.title}</h4>
-                          <button onClick={() => { setEditingItemId(item.id); setEditingItemTitle(item.title); }} className="p-1 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all md:opacity-0 md:group-hover:opacity-100"><Edit2 className="w-4 h-4" /></button>
-                        </div>
-                      )}
-                      <div className="mt-2 flex items-center gap-3 max-w-xs">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full ${subject.color.replace('text-', 'bg-')} transition-all`} style={{ width: `${progress}%` }} /></div>
-                        <span className="text-[10px] font-bold text-gray-400">{progress}%</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        {/* NÚT ĐÍNH KÈM FILE MỚI THÊM */}
+                        <label className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Đính kèm tài liệu (Lưu tạm trên máy này)">
+                          <Paperclip className="w-5 h-5" />
+                          <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} />
+                        </label>
+                        <button onClick={() => deleteStudyItem(item.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá bài học"><Trash2 className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <button onClick={() => deleteStudyItem(item.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá bài học"><Trash2 className="w-5 h-5" /></button>
-                    </div>
+
+                    {/* HIỂN THỊ FILE ĐÃ ĐÍNH KÈM */}
+                    {item.attachments && item.attachments.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-gray-50">
+                        {item.attachments.map((att, i) => (
+                          <a key={i} href={att.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md flex items-center gap-1.5 transition-colors">
+                            <Paperclip className="w-3.5 h-3.5"/> <span className="max-w-[150px] truncate">{att.name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })
