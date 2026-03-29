@@ -21,20 +21,20 @@ import {
   Calendar, BookOpen, CheckCircle2, Circle, Plus, Trash2, ChevronLeft,
   ChevronRight, LayoutList, CalendarDays, Target, BrainCircuit, Dna,
   Microscope, Stethoscope, Activity, Sparkles, X, Loader2, Paperclip,
-  ArrowLeft, Upload, FileText, Edit2, LogOut, User, Cloud, AlertCircle
+  ArrowLeft, Upload, FileText, Edit2, LogOut, User, Cloud, AlertCircle, Bell
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
 // RẤT QUAN TRỌNG: Hãy thay thế các dòng dưới đây bằng mã thật từ Firebase Console của bạn
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-const firebaseConfig = rawConfig ? JSON.parse(rawConfig) : {
+const firebaseConfig = {
   apiKey: "AIzaSyDmyno516slYBrEGombfm3Uf1xURP6MgFY",
   authDomain: "minh-5e426.firebaseapp.com",
   projectId: "minh-5e426",
   storageBucket: "minh-5e426.firebasestorage.app",
   messagingSenderId: "1099236716330",
   appId: "1:1099236716330:web:310556379821475993b853",
-  measurementId: "G-21C38Y6V7R",
+  measurementId: "G-21C38Y6V7R"
 };
 
 let app, auth, db;
@@ -66,7 +66,7 @@ const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
 
-// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Bản Nâng Cấp - Tháng 8 Tổng Ôn 5 bài/ngày) ---
+// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Bản Nâng Cấp - Tháng 8 Tổng Ôn 160 suất) ---
 const EXAM_DATE = new Date('2026-09-01');
 const SUBJECTS = [
   { name: 'Hoá sinh', icon: Microscope, color: 'text-emerald-500' },
@@ -92,7 +92,7 @@ const generateBalancedStudyPlan = () => {
   const totalLessons = LESSONS_PER_SUBJECT * SUBJECTS.length;
 
   let lessonCounter = 0;
-  const allLessonsInfo = []; // Lưu danh sách toàn bộ 80 bài để trộn vào Tháng 8
+  const allLessonsInfo = []; // Lưu danh sách toàn bộ 80 bài để chuẩn bị cho Tháng 8
 
   for (let lesson = 1; lesson <= LESSONS_PER_SUBJECT; lesson++) {
     for (const subject of SUBJECTS) {
@@ -129,7 +129,7 @@ const generateBalancedStudyPlan = () => {
         const revDate = new Date(learnDate);
         revDate.setDate(revDate.getDate() + interval);
 
-        // Hủy mốc ôn tập cơ bản nếu nó rơi vào Tháng 8 (Nhường chỗ cho Tổng Ôn)
+        // Hủy mốc ôn tập cơ bản nếu nó rơi vào Tháng 8
         if (revDate < startSprintDate && revDate < EXAM_DATE) {
           generatedEvents.push({
             id: `ev_rev_${itemId}_${idx}`,
@@ -143,33 +143,25 @@ const generateBalancedStudyPlan = () => {
         }
       });
 
-      // Đưa thông tin bài học vào kho lưu trữ để chuẩn bị cho Tháng 8
       allLessonsInfo.push({ itemId, subject: subject.name, title });
       lessonCounter++;
     }
   }
 
-  // 3. THÁNG 8 TỔNG ÔN THÔNG MINH: 160 SUẤT (MỖI BÀI ĐÚNG 2 LẦN)
+  // 3. THÁNG 8 TỔNG ÔN THÔNG MINH: 160 SUẤT
   const sprintStartDate = new Date('2026-08-01');
   const sprintEndDate = new Date('2026-08-31');
   const sprintDaysCount = Math.round((sprintEndDate - sprintStartDate) / (1000 * 60 * 60 * 24)) + 1; // 31 ngày
-  const totalSprintSlots = 160; // 80 bài x 2 vòng
+  const totalSprintSlots = 160; 
 
-  // KHÔNG TRỘN NGẪU NHIÊN: Sắp xếp có chủ đích dựa vào lịch sử học (Tháng 3 -> Tháng 7)
-  // allLessonsInfo vốn dĩ đã được sinh ra theo đúng thứ tự thời gian bạn học bài mới.
-  // Chúng ta nối 2 vòng allLessonsInfo lại với nhau.
-  // Vòng 1 (Nửa đầu T8): Cứu các bài cũ tháng 3 trước, các bài mới tháng 7 để sau.
-  // Vòng 2 (Nửa cuối T8): Lặp lại. Đảm bảo mọi bài đều cách nhau ~15.5 ngày!
   let sprintPool = [...allLessonsInfo, ...allLessonsInfo];
 
-  // Rải đều 160 bài vào 31 ngày (Toán học: 26 ngày ôn 5 bài, 5 ngày ôn 6 bài)
   let poolIndex = 0;
   for (let i = 0; i < sprintDaysCount; i++) {
     const currentDate = new Date(sprintStartDate);
     currentDate.setDate(sprintStartDate.getDate() + i);
     const dateStr = formatDateObj(currentDate);
 
-    // Công thức tính số bài ôn trong ngày i để đảm bảo tổng đúng 160 bài sau 31 ngày
     const itemsToday = Math.floor((i + 1) * totalSprintSlots / sprintDaysCount) - Math.floor(i * totalSprintSlots / sprintDaysCount);
 
     for (let j = 0; j < itemsToday; j++) {
@@ -291,12 +283,6 @@ export default function App() {
       { id: `ev_${Date.now()}_start`, date: todayStr, title: `Học mới: ${newItemTitle}`, subject: 'Khác', studyItemId: newItemId, completed: false, type: 'learn' },
     ];
 
-    INTERVALS.slice(0, 5).forEach((interval, index) => {
-      const revDate = new Date();
-      revDate.setDate(revDate.getDate() + interval);
-      newEvents.push({ id: `ev_${Date.now()}_rev_${index}`, date: formatDateObj(revDate), title: `Ôn tập l${index + 1}: ${newItemTitle}`, subject: 'Khác', studyItemId: newItemId, completed: false, type: 'review' });
-    });
-
     updateCloudData(newItemsList, [...events, ...newEvents]);
     setNewItemTitle('');
     setActiveTab('today');
@@ -315,14 +301,6 @@ export default function App() {
     const newEvents = [
       { id: `ev_${Date.now()}_start`, date: todayStr, title: `Học mới: ${subjectName} - ${subjectNewItemTitle}`, subject: subjectName, studyItemId: newItemId, completed: false, type: 'learn' },
     ];
-
-    INTERVALS.forEach((interval, index) => {
-      const revDate = new Date();
-      revDate.setDate(revDate.getDate() + interval);
-      if (revDate < EXAM_DATE) {
-        newEvents.push({ id: `ev_${Date.now()}_rev_${index}`, date: formatDateObj(revDate), title: `Ôn lần ${index + 1}: ${subjectName} - ${subjectNewItemTitle}`, subject: subjectName, studyItemId: newItemId, completed: false, type: 'review' });
-      }
-    });
 
     updateCloudData(newItemsList, [...events, ...newEvents]);
     setSubjectNewItemTitle('');
@@ -347,10 +325,8 @@ export default function App() {
 
   const handleSaveEditItem = (itemId) => {
     if (!editingItemTitle.trim()) { setEditingItemId(null); return; }
-
     const oldItem = studyItems.find((it) => it.id === itemId);
     const oldTitle = oldItem.title;
-
     const newItems = studyItems.map((it) => it.id === itemId ? { ...it, title: editingItemTitle } : it);
     const newEvents = events.map((ev) => {
       if (ev.studyItemId === itemId) {
@@ -358,7 +334,6 @@ export default function App() {
       }
       return ev;
     });
-
     updateCloudData(newItems, newEvents);
     setEditingItemId(null);
     setEditingItemTitle('');
@@ -385,6 +360,34 @@ export default function App() {
     } catch (e) {
       setErrorMessage("Không thể tạo tài khoản khách: " + e.message);
     }
+  };
+
+  // TÍNH NĂNG MỚI: XUẤT RA LỊCH ĐIỆN THOẠI
+  const handleExportCalendar = () => {
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MedTrack Pro//VN\nCALSCALE:GREGORIAN\n";
+
+    events.forEach((ev) => {
+      if (ev.completed) return; // Không xuất những sự kiện đã học xong
+      const dateParts = ev.date.split('-'); // YYYY-MM-DD
+      const yyyymmdd = dateParts.join('');
+
+      icsContent += "BEGIN:VEVENT\n";
+      icsContent += `DTSTART;VALUE=DATE:${yyyymmdd}\n`; 
+      icsContent += `SUMMARY:${ev.title}\n`;
+      icsContent += `DESCRIPTION:Nhiệm vụ ôn thi Y khoa: ${ev.subject}\n`;
+      icsContent += "END:VEVENT\n";
+    });
+
+    icsContent += "END:VCALENDAR";
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Lich_MedTrack.ics');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleAskGemini = async (eventTask) => {
@@ -471,12 +474,6 @@ export default function App() {
             Nền tảng học thuật chuẩn y khoa. <br/>Tự động lập kế hoạch và đồng bộ dữ liệu của bạn trên đám mây.
           </p>
 
-          {errorMessage && (
-            <div className="w-full bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-6 border border-red-100 font-medium">
-              {errorMessage}
-            </div>
-          )}
-
           <div className="w-full space-y-3">
             <button 
               onClick={handleLoginGoogle}
@@ -540,9 +537,19 @@ export default function App() {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <header className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-4">
-            <Target className="text-red-500" /> {headerTitle}
-          </h2>
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Target className="text-red-500" /> {headerTitle}
+            </h2>
+            {/* NÚT XUẤT LỊCH ĐIỆN THOẠI */}
+            <button 
+              onClick={handleExportCalendar} 
+              className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+              title="Thêm lịch học vào ứng dụng Lịch trên máy để nhận chuông báo"
+            >
+              <Bell className="w-4 h-4" /> Bật nhắc nhở
+            </button>
+          </div>
 
           <div className="flex bg-gray-100/80 p-1 rounded-xl mb-4 w-full sm:w-max border border-gray-200/60 shadow-sm">
             <button onClick={() => setUpcomingFilter('today')} className={`flex-1 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${upcomingFilter === 'today' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>Hôm nay</button>
@@ -740,8 +747,7 @@ export default function App() {
                       </div>
                       
                       <div className="flex items-center gap-2 self-end sm:self-auto">
-                        {/* NÚT ĐÍNH KÈM FILE MỚI THÊM */}
-                        <label className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Đính kèm tài liệu (Lưu tạm trên máy này)">
+                        <label className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Đính kèm tài liệu">
                           <Paperclip className="w-5 h-5" />
                           <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} />
                         </label>
@@ -749,7 +755,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* HIỂN THỊ FILE ĐÃ ĐÍNH KÈM */}
                     {item.attachments && item.attachments.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-gray-50">
                         {item.attachments.map((att, i) => (
