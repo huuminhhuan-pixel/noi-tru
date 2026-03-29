@@ -16,6 +16,12 @@ import {
   setDoc, 
   onSnapshot 
 } from 'firebase/firestore';
+import { 
+  getStorage, 
+  ref, 
+  uploadBytes, 
+  getDownloadURL 
+} from 'firebase/storage';
 
 import {
   Calendar, BookOpen, CheckCircle2, Circle, Plus, Trash2, ChevronLeft,
@@ -37,7 +43,7 @@ const firebaseConfig = {
   measurementId: "G-21C38Y6V7R"
 };
 
-let app, auth, db;
+let app, auth, db, storage;
 const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY";
 
 if (isFirebaseConfigured) {
@@ -45,6 +51,7 @@ if (isFirebaseConfigured) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    storage = getStorage(app);
   } catch (error) {
     console.error("Firebase init error:", error);
   }
@@ -198,6 +205,8 @@ export default function App() {
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingItemTitle, setEditingItemTitle] = useState('');
 
+  const [uploadingFileId, setUploadingFileId] = useState(null); // Trạng thái tiến trình upload
+
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiCurrentTask, setAiCurrentTask] = useState(null);
   const [aiContent, setAiContent] = useState('');
@@ -306,16 +315,49 @@ export default function App() {
     setSubjectNewItemTitle('');
   };
 
-  const handleFileUpload = (itemId, e) => {
+  // Tính năng tải file đã được kết nối với Firebase Storage (Đồng bộ mọi thiết bị)
+  const handleFileUpload = async (itemId, e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const newItems = studyItems.map((it) =>
-      it.id === itemId
-        ? { ...it, attachments: [...(it.attachments || []), { name: file.name, url: URL.createObjectURL(file) }] }
-        : it
-    );
-    updateCloudData(newItems, events); 
+    if (!storage || !user) {
+      setErrorMessage("Firebase Storage chưa được kết nối.");
+      return;
+    }
+
+    // Giới hạn file 10MB để tránh đầy dung lượng nhanh
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage("Vui lòng chọn file dưới 10MB.");
+      return;
+    }
+
+    try {
+      setUploadingFileId(itemId); // Bật hiệu ứng loading cho bài học này
+      
+      // Tạo đường dẫn lưu file an toàn trên đám mây cho user hiện tại
+      const storageRef = ref(storage, `artifacts/${appId}/users/${user.uid}/files/${itemId}/${file.name}`);
+      
+      // Tải lên
+      await uploadBytes(storageRef, file);
+      
+      // Lấy link truy cập file (download URL)
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Cập nhật link này vào cơ sở dữ liệu bài học
+      const newItems = studyItems.map((it) =>
+        it.id === itemId
+          ? { ...it, attachments: [...(it.attachments || []), { name: file.name, url: downloadURL }] }
+          : it
+      );
+      
+      await updateCloudData(newItems, events);
+    } catch (error) {
+      console.error("Lỗi khi tải file:", error);
+      setErrorMessage("Không thể tải file. Bạn đã mở khóa Firebase Storage chưa?");
+    } finally {
+      setUploadingFileId(null); // Tắt hiệu ứng loading
+      e.target.value = null; // Reset input file
+    }
   };
 
   const toggleEventCompletion = (eventId) => {
@@ -362,7 +404,6 @@ export default function App() {
     }
   };
 
-  // TÍNH NĂNG MỚI: XUẤT RA LỊCH ĐIỆN THOẠI
   const handleExportCalendar = () => {
     let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MedTrack Pro//VN\nCALSCALE:GREGORIAN\n";
 
@@ -541,7 +582,6 @@ export default function App() {
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Target className="text-red-500" /> {headerTitle}
             </h2>
-            {/* NÚT XUẤT LỊCH ĐIỆN THOẠI */}
             <button 
               onClick={handleExportCalendar} 
               className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
@@ -747,9 +787,15 @@ export default function App() {
                       </div>
                       
                       <div className="flex items-center gap-2 self-end sm:self-auto">
-                        <label className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Đính kèm tài liệu">
-                          <Paperclip className="w-5 h-5" />
-                          <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} />
+                        <label className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${uploadingFileId === item.id ? 'text-blue-500 bg-blue-50 cursor-wait' : 'text-gray-300 hover:text-blue-500 hover:bg-blue-50 cursor-pointer'}`} title="Đính kèm tài liệu lên đám mây">
+                          {uploadingFileId === item.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <>
+                              <Paperclip className="w-5 h-5" />
+                              <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} disabled={uploadingFileId === item.id} />
+                            </>
+                          )}
                         </label>
                         <button onClick={() => deleteStudyItem(item.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá bài học"><Trash2 className="w-5 h-5" /></button>
                       </div>
@@ -759,7 +805,7 @@ export default function App() {
                       <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-gray-50">
                         {item.attachments.map((att, i) => (
                           <a key={i} href={att.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md flex items-center gap-1.5 transition-colors">
-                            <Paperclip className="w-3.5 h-3.5"/> <span className="max-w-[150px] truncate">{att.name}</span>
+                            <Cloud className="w-3.5 h-3.5"/> <span className="max-w-[150px] truncate">{att.name}</span>
                           </a>
                         ))}
                       </div>
