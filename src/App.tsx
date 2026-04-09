@@ -85,8 +85,8 @@ const generateBalancedStudyPlan = () => {
   const generatedItems = [];
   const generatedEvents = [];
 
-  // CHỈNH SỬA: Lịch bắt đầu cứng từ ngày 03/04/2026 (Tháng đếm từ 0 nên 3 là tháng 4)
-  const startDate = new Date(2026, 3, 3); 
+// Đã vặn đồng hồ về ngày 29/03/2026 để hôm nay (10/04) rơi đúng vào bài Hoá sinh 3
+const startDate = new Date(2026, 2, 29); 
   
   const endLearningDate = new Date('2026-08-05');
   if (startDate >= endLearningDate) {
