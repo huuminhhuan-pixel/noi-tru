@@ -27,11 +27,10 @@ import {
   Calendar, BookOpen, CheckCircle2, Circle, Plus, Trash2, ChevronLeft,
   ChevronRight, LayoutList, CalendarDays, Target, BrainCircuit, Dna,
   Microscope, Stethoscope, Activity, Sparkles, X, Loader2, Paperclip,
-  ArrowLeft, Upload, FileText, Edit2, LogOut, User, Cloud, AlertCircle, Bell
+  ArrowLeft, Cloud, AlertCircle, Bell
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
-// RẤT QUAN TRỌNG: Hãy thay thế các dòng dưới đây bằng mã thật từ Firebase Console của bạn
 const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
 const firebaseConfig = {
   apiKey: "AIzaSyDmyno516slYBrEGombfm3Uf1xURP6MgFY",
@@ -73,7 +72,7 @@ const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
 
-// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Bản Nâng Cấp - Tháng 8 Tổng Ôn 160 suất) ---
+// --- THUẬT TOÁN LÊN KẾ HOẠCH KHOA HỌC (Bắt đầu 03/04/2026 - T8 Tổng Ôn 160 suất) ---
 const EXAM_DATE = new Date('2026-09-01');
 const SUBJECTS = [
   { name: 'Hoá sinh', icon: Microscope, color: 'text-emerald-500' },
@@ -87,9 +86,9 @@ const generateBalancedStudyPlan = () => {
   const generatedItems = [];
   const generatedEvents = [];
 
-  const startDate = new Date(); // Bắt đầu từ hôm nay
+  // CHỈNH SỬA: Lịch bắt đầu cứng từ ngày 03/04/2026 (Tháng đếm từ 0 nên 3 là tháng 4)
+  const startDate = new Date(2026, 3, 3); 
   
-  // Dàn đều việc học bài mới từ nay đến 05/08/2026
   const endLearningDate = new Date('2026-08-05');
   if (startDate >= endLearningDate) {
     endLearningDate.setDate(EXAM_DATE.getDate() - 15);
@@ -99,7 +98,7 @@ const generateBalancedStudyPlan = () => {
   const totalLessons = LESSONS_PER_SUBJECT * SUBJECTS.length;
 
   let lessonCounter = 0;
-  const allLessonsInfo = []; // Lưu danh sách toàn bộ 80 bài để chuẩn bị cho Tháng 8
+  const allLessonsInfo = []; 
 
   for (let lesson = 1; lesson <= LESSONS_PER_SUBJECT; lesson++) {
     for (const subject of SUBJECTS) {
@@ -113,7 +112,6 @@ const generateBalancedStudyPlan = () => {
         createdAt: getTodayString(),
       });
 
-      // 1. LỊCH HỌC MỚI (Dàn đều)
       const daysOffset = Math.floor((lessonCounter / totalLessons) * totalDaysForNewLessons);
       const learnDate = new Date(startDate);
       learnDate.setDate(startDate.getDate() + daysOffset);
@@ -128,15 +126,13 @@ const generateBalancedStudyPlan = () => {
         type: 'learn',
       });
 
-      // 2. LỊCH ÔN TẬP CƠ BẢN (1, 3, 7, 14, 30, 50) - Chỉ xếp nếu trước ngày 1/8
       const spacedIntervals = [1, 3, 7, 14, 30, 50];
-      const startSprintDate = new Date('2026-08-01'); // Bắt đầu Tổng ôn từ 1/8
+      const startSprintDate = new Date('2026-08-01'); 
       
       spacedIntervals.forEach((interval, idx) => {
         const revDate = new Date(learnDate);
         revDate.setDate(revDate.getDate() + interval);
 
-        // Hủy mốc ôn tập cơ bản nếu nó rơi vào Tháng 8
         if (revDate < startSprintDate && revDate < EXAM_DATE) {
           generatedEvents.push({
             id: `ev_rev_${itemId}_${idx}`,
@@ -155,10 +151,9 @@ const generateBalancedStudyPlan = () => {
     }
   }
 
-  // 3. THÁNG 8 TỔNG ÔN THÔNG MINH: 160 SUẤT
   const sprintStartDate = new Date('2026-08-01');
   const sprintEndDate = new Date('2026-08-31');
-  const sprintDaysCount = Math.round((sprintEndDate - sprintStartDate) / (1000 * 60 * 60 * 24)) + 1; // 31 ngày
+  const sprintDaysCount = Math.round((sprintEndDate - sprintStartDate) / (1000 * 60 * 60 * 24)) + 1; 
   const totalSprintSlots = 160; 
 
   let sprintPool = [...allLessonsInfo, ...allLessonsInfo];
@@ -198,6 +193,9 @@ export default function App() {
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [upcomingFilter, setUpcomingFilter] = useState('today');
+  
+  // Trạng thái lưu ngày đang được click trên Lịch để mở popup
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
 
   const [newItemTitle, setNewItemTitle] = useState('');
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -205,7 +203,7 @@ export default function App() {
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingItemTitle, setEditingItemTitle] = useState('');
 
-  const [uploadingFileId, setUploadingFileId] = useState(null); // Trạng thái tiến trình upload
+  const [uploadingFileId, setUploadingFileId] = useState(null); 
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiCurrentTask, setAiCurrentTask] = useState(null);
@@ -315,7 +313,6 @@ export default function App() {
     setSubjectNewItemTitle('');
   };
 
-  // Tính năng tải file đã được kết nối với Firebase Storage (Đồng bộ mọi thiết bị)
   const handleFileUpload = async (itemId, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -325,38 +322,29 @@ export default function App() {
       return;
     }
 
-    // Giới hạn file 10MB để tránh đầy dung lượng nhanh
     if (file.size > 10 * 1024 * 1024) {
       setErrorMessage("Vui lòng chọn file dưới 10MB.");
       return;
     }
 
     try {
-      setUploadingFileId(itemId); // Bật hiệu ứng loading cho bài học này
-      
-      // Tạo đường dẫn lưu file an toàn trên đám mây cho user hiện tại
+      setUploadingFileId(itemId); 
       const storageRef = ref(storage, `artifacts/${appId}/users/${user.uid}/files/${itemId}/${file.name}`);
-      
-      // Tải lên
       await uploadBytes(storageRef, file);
-      
-      // Lấy link truy cập file (download URL)
       const downloadURL = await getDownloadURL(storageRef);
 
-      // Cập nhật link này vào cơ sở dữ liệu bài học
       const newItems = studyItems.map((it) =>
         it.id === itemId
           ? { ...it, attachments: [...(it.attachments || []), { name: file.name, url: downloadURL }] }
           : it
       );
-      
       await updateCloudData(newItems, events);
     } catch (error) {
       console.error("Lỗi khi tải file:", error);
-      setErrorMessage("Không thể tải file. Bạn đã mở khóa Firebase Storage chưa?");
+      setErrorMessage("Không thể tải file. Hãy chắc chắn đã bật Rules trong mục Storage.");
     } finally {
-      setUploadingFileId(null); // Tắt hiệu ứng loading
-      e.target.value = null; // Reset input file
+      setUploadingFileId(null); 
+      e.target.value = null; 
     }
   };
 
@@ -408,8 +396,8 @@ export default function App() {
     let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MedTrack Pro//VN\nCALSCALE:GREGORIAN\n";
 
     events.forEach((ev) => {
-      if (ev.completed) return; // Không xuất những sự kiện đã học xong
-      const dateParts = ev.date.split('-'); // YYYY-MM-DD
+      if (ev.completed) return; 
+      const dateParts = ev.date.split('-'); 
       const yyyymmdd = dateParts.join('');
 
       icsContent += "BEGIN:VEVENT\n";
@@ -478,6 +466,21 @@ export default function App() {
     const subj = SUBJECTS.find((s) => s.name === subjectName);
     return subj ? subj.color.replace('text-', 'bg-').replace('500', '100') : 'bg-gray-100';
   };
+
+  // Hàm render chung cho 1 dòng nhiệm vụ (dùng ở cả tab Hôm nay và Modal Lịch)
+  const renderEventItem = (event) => (
+    <li key={event.id} className="p-4 hover:bg-gray-50 transition-colors flex items-start gap-3 cursor-pointer border-b border-gray-50 last:border-0" onClick={() => toggleEventCompletion(event.id)}>
+      <button className="mt-0.5 focus:outline-none shrink-0">
+        {event.completed ? <CheckCircle2 className="w-6 h-6 text-green-500" /> : <Circle className={`w-6 h-6 ${event.type === 'learn' ? 'text-gray-300 hover:text-blue-400' : 'text-gray-300 hover:text-purple-400'}`} />}
+      </button>
+      <div className={`flex-1 ${event.completed ? 'opacity-50 line-through' : ''}`}>
+        <p className={`font-semibold ${event.type === 'learn' ? getSubjectColor(event.subject) : 'text-gray-800'}`}>{event.title}</p>
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); handleAskGemini(event); }} className="ml-2 p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold border border-amber-200 bg-amber-50" title="Tóm tắt & Trắc nghiệm với AI">
+        <Sparkles className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Trợ giảng</span>
+      </button>
+    </li>
+  );
 
   if (!isFirebaseConfigured) {
     return (
@@ -560,20 +563,6 @@ export default function App() {
 
     const dates = Object.keys(groupedEvents).sort();
     const headerTitle = upcomingFilter === 'today' ? 'Mục tiêu Hôm nay' : `Mục tiêu ${upcomingFilter === '3days' ? '3' : '7'} ngày tới`;
-
-    const renderEventItem = (event) => (
-      <li key={event.id} className="p-4 hover:bg-gray-50 transition-colors flex items-start gap-3 cursor-pointer" onClick={() => toggleEventCompletion(event.id)}>
-        <button className="mt-0.5 focus:outline-none shrink-0">
-          {event.completed ? <CheckCircle2 className="w-6 h-6 text-green-500" /> : <Circle className={`w-6 h-6 ${event.type === 'learn' ? 'text-gray-300 hover:text-blue-400' : 'text-gray-300 hover:text-purple-400'}`} />}
-        </button>
-        <div className={`flex-1 ${event.completed ? 'opacity-50 line-through' : ''}`}>
-          <p className={`font-semibold ${event.type === 'learn' ? getSubjectColor(event.subject) : 'text-gray-800'}`}>{event.title}</p>
-        </div>
-        <button onClick={(e) => { e.stopPropagation(); handleAskGemini(event); }} className="ml-2 p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold border border-amber-200 bg-amber-50" title="Tóm tắt & Trắc nghiệm với AI">
-          <Sparkles className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Trợ giảng AI</span>
-        </button>
-      </li>
-    );
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
@@ -713,7 +702,11 @@ export default function App() {
               const reviewEvs = dayEvents.filter((e) => e.type === 'review');
 
               return (
-                <div key={day} className={`bg-white min-h-[120px] p-2 transition-colors hover:bg-indigo-50/50 ${isToday ? 'bg-indigo-50 ring-2 ring-indigo-500 inset-0' : ''}`}>
+                <div 
+                  key={day} 
+                  onClick={() => setSelectedCalendarDate(dateStr)} // THÊM TÍNH NĂNG CLICK VÀO NGÀY
+                  className={`bg-white min-h-[120px] p-2 transition-colors cursor-pointer hover:bg-indigo-50/50 ${isToday ? 'bg-indigo-50 ring-2 ring-indigo-500 inset-0' : ''}`}
+                >
                   <div className={`text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full mb-2 ${isToday ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-700'}`}>{day}</div>
                   <div className="space-y-1.5">
                     {learnEvs.map((ev) => (
@@ -913,7 +906,7 @@ export default function App() {
           </button>
         </header>
 
-        <main className="flex-1 p-4 md:p-10 max-h-screen overflow-y-auto">
+        <main className="flex-1 p-4 md:p-10 max-h-screen overflow-y-auto relative">
           <div className="max-w-4xl mx-auto">
             {!isDataLoaded ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
@@ -936,8 +929,60 @@ export default function App() {
           <button onClick={() => setActiveTab('study')} className={`flex flex-col items-center gap-1 p-2 ${activeTab === 'study' ? 'text-indigo-600' : 'text-gray-400'}`}><LayoutList className="w-6 h-6" /><span className="text-[10px] font-bold">Tổng quan</span></button>
         </nav>
 
+        {/* MODAL HIỂN THỊ CHI TIẾT NGÀY TRÊN LỊCH */}
+        {selectedCalendarDate && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
+                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-indigo-500" />
+                  Nhiệm vụ ngày {new Date(selectedCalendarDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </h3>
+                <button onClick={() => setSelectedCalendarDate(null)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"><X className="w-5 h-5"/></button>
+              </div>
+              <div className="p-4 overflow-y-auto flex-1 bg-white">
+                 {(() => {
+                    const dayEvents = events.filter(ev => ev.date === selectedCalendarDate);
+                    if (dayEvents.length === 0) return (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3"><Calendar className="w-8 h-8 text-gray-300" /></div>
+                        <p className="text-gray-500 font-medium">Bạn không có lịch học nào trong ngày này.</p>
+                      </div>
+                    );
+
+                    dayEvents.sort((a, b) => {
+                      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                      if (a.type !== b.type) return a.type === 'learn' ? -1 : 1;
+                      return 0;
+                    });
+
+                    const learnEvents = dayEvents.filter((ev) => ev.type === 'learn');
+                    const reviewEvents = dayEvents.filter((ev) => ev.type === 'review');
+
+                    return (
+                        <div className="space-y-6">
+                            {learnEvents.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 flex items-center gap-2"><BookOpen className="w-3.5 h-3.5" /> Kiến thức mới</h4>
+                                <ul className="border border-gray-100 rounded-xl divide-y divide-gray-50">{learnEvents.map(renderEventItem)}</ul>
+                              </div>
+                            )}
+                            {reviewEvents.length > 0 && (
+                              <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 flex items-center gap-2"><BrainCircuit className="w-3.5 h-3.5" /> Nhiệm vụ ôn tập</h4>
+                                <ul className="border border-gray-100 rounded-xl divide-y divide-gray-50">{reviewEvents.map(renderEventItem)}</ul>
+                              </div>
+                            )}
+                        </div>
+                    )
+                 })()}
+              </div>
+            </div>
+          </div>
+        )}
+
         {aiModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="p-5 border-b border-orange-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
                 <div className="flex items-center gap-3 text-amber-700">
