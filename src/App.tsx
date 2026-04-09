@@ -27,7 +27,7 @@ import {
   Calendar, BookOpen, CheckCircle2, Circle, Plus, Trash2, ChevronLeft,
   ChevronRight, LayoutList, CalendarDays, Target, BrainCircuit, Dna,
   Microscope, Stethoscope, Activity, Sparkles, X, Loader2, Paperclip,
-  ArrowLeft, Cloud, AlertCircle, Bell
+  ArrowLeft, Cloud, AlertCircle, Bell, FileText, Edit2, LogOut
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE (ĐÁM MÂY) ---
@@ -41,7 +41,6 @@ const firebaseConfig = {
   appId: "1:1099236716330:web:310556379821475993b853",
   measurementId: "G-21C38Y6V7R"
 };
-
 let app, auth, db, storage;
 const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY";
 
